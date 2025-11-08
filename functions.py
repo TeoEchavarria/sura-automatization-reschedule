@@ -139,9 +139,9 @@ def firefox_driver(logger: Logger,
     options.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/zip,application/pdf")
     options.set_preference("pdfjs.disabled", True)
 
-    headless_mode = os.getenv("HEADLESS_MODE", "true").lower() == "true"
-    if headless_mode:
-        options.add_argument("--headless")
+    # headless_mode = os.getenv("HEADLESS_MODE", "true").lower() == "true"
+    # if headless_mode:
+    #     options.add_argument("--headless")
 
     service = FFService(driver_path)
     driver = webdriver.Firefox(service=service, options=options)
