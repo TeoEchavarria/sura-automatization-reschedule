@@ -400,6 +400,56 @@ def keyboard_accept(action: Optional[ScrapingAction] = None) -> Step:
         return state
     return _step
 
+# -------------------------------------------------------------------
+# EXTRACCIONES ESPECÍFICAS: CITA PENDIENTE Y TAB DE FECHA
+# -------------------------------------------------------------------
+
+def extract_first_pending_appointment(action: ScrapingAction) -> Step:
+    """
+    Toma la PRIMERA cita pendiente que encuentre (primer .tarjetaCita__fecha)
+    y guarda en state.last un dict: {"date": "...", "time": "..."}.
+    """
+    @with_retries()
+    def _step(state: DriverState, logger: Logger) -> DriverState:
+        # Localiza el contenedor de fecha de la cita
+        el = _wait(
+            state,
+            action.locator_by,
+            action.locator_path,
+            action.timeout,
+            cond="visible",
+        )
+        spans = el.find_elements(By.CSS_SELECTOR, "span")
+        date_text = spans[0].text.strip() if len(spans) > 0 else ""
+        time_text = spans[1].text.strip() if len(spans) > 1 else ""
+        data = {"date": date_text, "time": time_text}
+        logger.info(f"Cita pendiente encontrada: {data['date']} - {data['time']}")
+        return state.with_updates(last=data)
+    return _step
+
+
+def extract_tab_date(action: ScrapingAction) -> Step:
+    """
+    Lee la fecha del TAB activo de reprogramación.
+    - Primero intenta aria-label (ej: '2025-11-15')
+    - Si no hay, usa el texto visible del tab.
+    Guarda en state.last un string.
+    """
+    @with_retries()
+    def _step(state: DriverState, logger: Logger) -> DriverState:
+        el = _wait(
+            state,
+            action.locator_by,
+            action.locator_path,
+            action.timeout,
+            cond="visible",
+        )
+        label = el.get_attribute("aria-label") or el.text
+        label = label.strip()
+        logger.info(f"Fecha de tab activo: {label}")
+        return state.with_updates(last=label)
+    return _step
+
 
 # -------------------------------------------------------------------
 # MAPEADOR DE ACTION_TYPE -> STEP
@@ -425,6 +475,10 @@ def step_from_action(action: ScrapingAction) -> Step:
         return keyboard_type_digits(action)
     if at == "keyboard_accept":
         return keyboard_accept(action)
+    if at == "extract_appointment_date":
+        return extract_first_pending_appointment(action)
+    if at == "extract_tab_date":
+        return extract_tab_date(action)
     raise ValueError(f"Action type no soportado: {at}")
 
 

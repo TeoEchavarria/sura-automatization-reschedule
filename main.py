@@ -97,12 +97,75 @@ if __name__ == "__main__":
 
         logger.info(f"Resultado bloque -> OK={result.successful}, error={result.error}, warnings={result.warnings}")
 
-        state, result = run_block(state, [
+         # --- BLOQUE 2: SALUD -> CITAS DE SALUD -> PENDIENTES + REPROGRAMAR ---
+
+        state, citas_result = run_block(state, [
+            # 1) Esperar a que aparezca el sura-modal
             ScrapingAction(
                 action_type="wait_visible",
-                description="Formulario principal",
+                description="Modal principal de portal (sura-modal)",
+                locator_by=By.XPATH,
+                locator_path="/html/body/app-root/app-portal/sura-modal",
+                timeout=30
+            ),
+            # 2) Click en Salud
+            ScrapingAction(
+                action_type="click",
+                description="Selección módulo Salud",
+                locator_by=By.XPATH,
+                locator_path="//li[contains(@class,'list')]//button[.//span[contains(@class,'title') and normalize-space()='Salud']]",
+                timeout=30
+            ),
+            # 3) Click en botón 'Citas de salud'
+            ScrapingAction(
+                action_type="click",
+                description="Ir a Citas de salud",
+                locator_by=By.XPATH,
+                locator_path="//button[contains(@class,'item') and .//span[contains(normalize-space(),'Citas de salud')]]",
+                timeout=30
+            ),
+            # 4) Click en 'Citas pendientes'
+            ScrapingAction(
+                action_type="click",
+                description="Ir a Citas pendientes",
                 locator_by=By.ID,
-                locator_path="navbarNavs",
-                timeout=25000
+                locator_path="irCitasPendientes",
+                timeout=30
+            ),
+            # 5) Extraer fecha de la primera cita pendiente
+            #    Usamos el contenedor .tarjetaCita__fecha
+            ScrapingAction(
+                action_type="extract_appointment_date",
+                description="Extraer fecha de primera cita pendiente",
+                locator_by=By.CSS_SELECTOR,
+                locator_path="div.tarjetaCita__fecha",
+                timeout=30
+            ),
+            # 6) Click en 'Reprogramar' de esa cita
+            ScrapingAction(
+                action_type="click",
+                description="Click en Reprogramar cita",
+                locator_by=By.ID,
+                locator_path="reagendarCita",
+                timeout=30
+            ),
+            # 7) Extraer la fecha del TAB activo (reprogramación)
+            ScrapingAction(
+                action_type="extract_tab_date",
+                description="Extraer fecha del día seleccionado (tab activo)",
+                locator_by=By.CSS_SELECTOR,
+                locator_path="div.mdc-tab.mdc-tab--active[role='tab']",
+                timeout=30
             ),
         ], logger)
+
+        logger.info(f"Citas bloque OK={citas_result.successful}, error={citas_result.error}")
+
+        # El resultado de la acción 5 (extract_appointment_date) y 7 (extract_tab_date)
+        # queda en citas_result.last_result (la ÚLTIMA acción, o sea el tab).
+        # Pero la fecha de la cita original se guardó en state.last justo después de la acción 5,
+        # así que es mejor hacer dos bloques o leerlo en el momento.
+        # Aquí, como ejemplo, lo recogemos desde la penúltima ejecución usando otra estrategia:
+        # más práctico: mirar en logs o, si prefieres, hacer dos bloques y usar ambas last_result.
+
+        logger.info(f"Último valor extraído (tab activo): {citas_result.last_result}")
